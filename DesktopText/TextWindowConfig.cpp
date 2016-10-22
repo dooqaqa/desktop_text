@@ -26,10 +26,11 @@ void TextWindowConfig::SaveConfig(const CString& text, BYTE alpha_percent, float
 	CFileException file_exception;
 	if (file.Open(path_, CFile::typeText | CFile::modeWrite), &file_exception) {
 		CString num;
-		num.Format(_T("%d\n%.3f\n%d\n%d\n%d\n%d\n%d"), alpha_percent, size_ratio, r, g, b, x, y);
+		num.Format(_T("%d\n%.3f\n%d\n%d\n%d\n%d\n%d\n"), alpha_percent, size_ratio, r, g, b, x, y);
 		CString total = text + _T("\n[text end]\n") + num;
 		file.WriteString(total);
 	}
+	file.Close();
 	
 	setlocale(LC_CTYPE, old_locale);
 	free(old_locale);//还原区域设定

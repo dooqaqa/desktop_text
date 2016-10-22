@@ -135,7 +135,7 @@ BOOL CDesktopTextDlg::OnInitDialog()
 	alpha_silder_.SetPos(alpha_percent);
 	main_text_.SetWindowText(text);
 	if (x < rec_work.left || x > rec_work.right) x = rec_work.left;
-	if (y < rec_work.top || y > rec_work.bottom) y = rec_work.bottom;
+	if (y < rec_work.top || y > rec_work.bottom) y = rec_work.top;
 	text_window_.Create(x, y);
 
 	// мпел
