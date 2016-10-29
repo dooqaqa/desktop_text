@@ -27,7 +27,7 @@ void TextWindowConfig::SaveConfig(const CString& text, BYTE alpha_percent, float
 	if (file.Open(path_, CFile::typeText | CFile::modeWrite), &file_exception) {
 		CString num;
 		num.Format(_T("%d\n%.3f\n%d\n%d\n%d\n%d\n%d\n"), alpha_percent, size_ratio, r, g, b, x, y);
-		CString total = text + _T("\n[text end]\n") + num;
+		CString total = text + _T("[text end]\n") + num;
 		file.WriteString(total);
 		file.Close();
 	}
