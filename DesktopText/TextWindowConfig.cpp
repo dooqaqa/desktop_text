@@ -24,10 +24,11 @@ void TextWindowConfig::SaveConfig(const CString& text, BYTE alpha_percent, float
 
 	CStdioFile file;
 	CFileException file_exception;
-	if (file.Open(path_, CFile::typeText | CFile::modeWrite), &file_exception) {
+	if (file.Open(path_, CFile::typeText | CFile::modeWrite/* | CFile::modeCreate*/), &file_exception) {
+		file.SetLength(0);
 		CString num;
 		num.Format(_T("%d\n%.3f\n%d\n%d\n%d\n%d\n%d\n"), alpha_percent, size_ratio, r, g, b, x, y);
-		CString total = text + _T("[text end]\n") + num;
+		CString total = text + _T("\n[text end]\n") + num;
 		file.WriteString(total);
 		file.Close();
 	}
@@ -49,8 +50,8 @@ void TextWindowConfig::LoadConfig(CString& text, BYTE& alpha_percent, float& siz
 			if (0 == line.Compare(_T("[text end]"))) {
 				break;
 			}
+			if (!text.IsEmpty()) text += _T("\n");
 			text += line;
-			text += _T("\n");
 		}
 		CString num;
 		file.ReadString(num);
