@@ -24,7 +24,7 @@ void TextWindowConfig::SaveConfig(const CString& text, BYTE alpha_percent, float
 
 	CStdioFile file;
 	CFileException file_exception;
-	if (file.Open(path_, CFile::typeText | CFile::modeWrite/* | CFile::modeCreate*/), &file_exception) {
+	if (file.Open(path_, CFile::typeText | CFile::modeWrite | CFile::modeCreate)) {
 		file.SetLength(0);
 		CString num;
 		num.Format(_T("%d\n%.3f\n%d\n%d\n%d\n%d\n%d\n"), alpha_percent, size_ratio, r, g, b, x, y);
@@ -44,7 +44,7 @@ void TextWindowConfig::LoadConfig(CString& text, BYTE& alpha_percent, float& siz
 
 	CStdioFile file;
 	CFileException file_exception;
-	if (file.Open(path_, CFile::typeText | CFile::modeRead), &file_exception) {
+	if (file.Open(path_, CFile::typeText | CFile::modeRead)) {
 		CString line;
 		while (file.ReadString(line)) {
 			if (0 == line.Compare(_T("[text end]"))) {

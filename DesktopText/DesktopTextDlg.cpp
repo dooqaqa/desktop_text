@@ -147,6 +147,8 @@ BOOL CDesktopTextDlg::OnInitDialog()
 	CString strToolTip = _T("托盘程序");
 	_tcsncpy_s(notifyicondata_id_.szTip, strToolTip, strToolTip.GetLength());
 	Shell_NotifyIcon(NIM_ADD, &notifyicondata_id_);
+	OnBnClickedMfcbuttonUpdate();
+	CloseWindow();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
