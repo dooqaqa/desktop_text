@@ -8,7 +8,7 @@ TextWindowConfig::TextWindowConfig()
 	TCHAR my_documents[MAX_PATH] = { 0 };
 	SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, my_documents);
 	path_ = my_documents;
-	path_ += "\\text_window_config___.txt";
+	path_ += "\\text_window_config.txt";
 	LoadConfig(path_);
 }
 
