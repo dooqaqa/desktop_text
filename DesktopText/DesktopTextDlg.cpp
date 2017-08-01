@@ -68,7 +68,7 @@ void CDesktopTextDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_EDIT_TEXT, main_text_);
-	DDX_Control(pDX, IDC_COMBO_TEXT_SIze, text_size_);
+	DDX_Control(pDX, IDC_COMBO_TEXT_INDEX, text_index_);
 	DDX_Control(pDX, IDC_MFCCOLORBUTTON_TEXT_COLOR, text_color_);
 	DDX_Control(pDX, IDC_STATIC_ALPHA, alpha_text_);
 	DDX_Control(pDX, IDC_SLIDER_ALPHA, alpha_silder_);
@@ -81,10 +81,11 @@ BEGIN_MESSAGE_MAP(CDesktopTextDlg, CDialogEx)
 	ON_WM_CLOSE()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
-	ON_BN_CLICKED(IDC_MFCBUTTON_UPDATE, &CDesktopTextDlg::OnBnClickedMfcbuttonUpdate)
+	ON_BN_CLICKED(IDC_MFCBUTTON_APPLY, &CDesktopTextDlg::OnBnClickedMfcbuttonApply)
 	ON_NOTIFY(NM_CUSTOMDRAW, IDC_SLIDER_ALPHA, &CDesktopTextDlg::OnNMCustomdrawSliderAlpha)
 	ON_NOTIFY(NM_CUSTOMDRAW, IDC_SLIDER_SIZE, &CDesktopTextDlg::OnNMCustomdrawSliderSize)
 	ON_MESSAGE(UM_TRAYNOTIFY, &CDesktopTextDlg::OnTrayNotify)
+	ON_CBN_SELCHANGE(IDC_COMBO_TEXT_INDEX, &CDesktopTextDlg::OnCbnSelchangeComboTextIndex)
 END_MESSAGE_MAP()
 
 
@@ -119,24 +120,8 @@ BOOL CDesktopTextDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// 设置大图标
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
-	// 文字窗口初始化
-	CString text;
-	BYTE alpha_percent(0), r(0), g(0), b(0);
-	float size_ratio;
-	int x(0), y(0);
-	config_.LoadConfig(text, alpha_percent, size_ratio, r, g, b, x, y);
-	text_color_.SetColor(RGB(r, g, b));
-	RECT rec_work;
-	SystemParametersInfo(SPI_GETWORKAREA, NULL, &rec_work, NULL);
-	int max = min(rec_work.right - rec_work.left, rec_work.bottom - rec_work.top) * 0.9;
-	text_size_slider_.SetRange(0, max);
-	text_size_slider_.SetPos(max * size_ratio);
-	alpha_silder_.SetRange(0, 100);
-	alpha_silder_.SetPos(alpha_percent);
-	main_text_.SetWindowText(text);
-	if (x < rec_work.left || x > rec_work.right) x = rec_work.left;
-	if (y < rec_work.top || y > rec_work.bottom) y = rec_work.top;
-	text_window_.Create(x, y);
+	InitConfigWidgets();
+	InitTextWindows();
 
 	// 托盘
 	notifyicondata_id_.hWnd = GetSafeHwnd();
@@ -147,8 +132,7 @@ BOOL CDesktopTextDlg::OnInitDialog()
 	CString strToolTip = _T("托盘程序");
 	_tcsncpy_s(notifyicondata_id_.szTip, strToolTip, strToolTip.GetLength());
 	Shell_NotifyIcon(NIM_ADD, &notifyicondata_id_);
-	OnBnClickedMfcbuttonUpdate();
-	CloseWindow();
+	RefreshAllTextWindow();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -202,24 +186,31 @@ HCURSOR CDesktopTextDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-
-
-void CDesktopTextDlg::OnBnClickedMfcbuttonUpdate()
+void CDesktopTextDlg::OnBnClickedMfcbuttonApply()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	COLORREF color =  text_color_.GetColor();
-	uint16_t font_size = text_size_slider_.GetPos();
+	int index = text_index_.GetCurSel();
 	CString text;
 	main_text_.GetWindowText(text);
-	uint8_t alpha_pos = alpha_silder_.GetPos();
-	text_window_.SetTextColor(color);
-	text_window_.SetTextSize(font_size);
-	text_window_.SetText(text);
-	text_window_.SetAlphaPercent(alpha_pos);
-	text_window_.Draw();
+	if (text.IsEmpty()) {
+		if (IDYES == MessageBox(_T("Remove this record?"), _T("Warning"), MB_YESNO))
+			RemoveRecord(index);
+		return;
+	}
+	if (index >= text_window_list_.size()) {
+		index = text_window_list_.size();
+		AddNewWindow();
+	}
 	RECT rc;
-	text_window_.GetWindowRect(&rc);
-	config_.SaveConfig(text, alpha_pos, (float)text_size_slider_.GetPos() / text_size_slider_.GetRangeMax(), GetRValue(color), GetGValue(color), GetBValue(color), rc.left, rc.top);
+	text_window_list_[index]->GetWindowRect(&rc);
+	TextConfig cfg;
+	COLORREF color = text_color_.GetColor();
+	uint16_t font_size = text_size_slider_.GetPos();
+	uint8_t alpha_pos = alpha_silder_.GetPos();
+	cfg.Assign(text, alpha_pos, (float)text_size_slider_.GetPos() / text_size_slider_.GetRangeMax(), GetRValue(color), GetGValue(color), GetBValue(color), rc.left, rc.top);
+	config_.SaveConfig(index, cfg);
+	UpdateConfigWidgets(index);
+	RefreshTextWindow(index);
 }
 
 
@@ -227,12 +218,8 @@ void CDesktopTextDlg::OnNMCustomdrawSliderAlpha(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
-	uint8_t pos = alpha_silder_.GetPos();
-	CString pos_text;
-	pos_text.Format(_T("%d%%"), 100 - pos);
-	alpha_text_.SetWindowText(pos_text);
-	text_window_.SetAlphaPercent(pos);
 	*pResult = 0;
+	UpdateAlphaLabel();
 }
 
 
@@ -240,12 +227,8 @@ void CDesktopTextDlg::OnNMCustomdrawSliderSize(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
-	uint16_t pos = text_size_slider_.GetPos();
-	CString pos_text;
-	pos_text.Format(_T("%d"), pos);
-	text_size_label_.SetWindowText(pos_text);
-	text_window_.SetTextSize(pos);
 	*pResult = 0;
+	UpdateSizeLabel();
 }
 LRESULT CDesktopTextDlg::OnTrayNotify(WPARAM wParam, LPARAM lParam)
 {
@@ -304,4 +287,130 @@ void CDesktopTextDlg::OnSize(UINT nType, int cx, int cy)
 void CDesktopTextDlg::OnClose()
 {
 	ShowWindow(SW_HIDE);
+}
+
+void CDesktopTextDlg::OnCbnSelchangeComboTextIndex()
+{
+	// TODO: Add your control notification handler code here
+	size_t index = text_index_.GetCurSel();
+	if (index >= text_index_.GetCount() - 1) {
+		text_index_.InsertString(index, _T("new item"));
+		text_index_.SetCurSel(index);
+	}
+	UpdateConfigWidgets(index);
+}
+
+void CDesktopTextDlg::RefreshTextWindow(int index)
+{
+	TextConfig cfg = std::move(config_.GetConfig(index));
+	uint8_t alpha_pos = alpha_silder_.GetPos();
+	if (index >= text_window_list_.size()) {
+		index = text_window_list_.size();
+		AddNewWindow();
+	}
+	text_window_list_[index]->SetTextColor(RGB(cfg.red_, cfg.green_, cfg.blue_));
+	text_window_list_[index]->SetTextSize(text_size_slider_.GetRangeMax() * cfg.size_ratio_);
+	text_window_list_[index]->SetText(cfg.content_);
+	text_window_list_[index]->SetAlphaPercent(alpha_pos);
+	text_window_list_[index]->Draw();
+
+}
+
+void CDesktopTextDlg::RefreshAllTextWindow()
+{
+	for (auto i = 0; i < config_.GetConfigSize(); ++i) {
+		RefreshTextWindow(i);
+	}
+}
+
+void CDesktopTextDlg::InitConfigWidgets()
+{
+	// 文字窗口初始化
+	RECT rec_work;
+	SystemParametersInfo(SPI_GETWORKAREA, NULL, &rec_work, NULL);
+	int max = min(rec_work.right - rec_work.left, rec_work.bottom - rec_work.top) * 0.9;
+	text_size_slider_.SetRange(0, max);
+	std::vector<TextConfig> cfg_list = std::move(config_.GetAllConfig());
+	for (auto& c : cfg_list) {
+		text_index_.AddString(c.content_);
+	}
+	text_index_.AddString(_T("Add new"));
+	text_index_.SetCurSel(0);
+	UpdateConfigWidgets(0);
+}
+
+void CDesktopTextDlg::UpdateConfigWidgets(size_t index)
+{
+	TextConfig c;
+	if (index < config_.GetConfigSize())
+		c = std::move(config_.GetConfig(index));
+	text_color_.SetColor(RGB(c.red_, c.green_, c.blue_));
+	text_size_slider_.SetPos(text_size_slider_.GetRangeMax() * c.size_ratio_);
+	alpha_silder_.SetRange(0, 100);
+	alpha_silder_.SetPos(c.alpha_percent_);
+	main_text_.SetWindowText(c.content_);
+	UpdateSizeLabel();
+	UpdateAlphaLabel();
+}
+
+void CDesktopTextDlg::InitTextWindows()
+{
+	std::vector<TextConfig> cfg = std::move(config_.GetAllConfig());
+	RECT rec_work;
+	SystemParametersInfo(SPI_GETWORKAREA, NULL, &rec_work, NULL);
+	for (auto& c : cfg) {
+		int x(c.left_x_), y(c.top_y_);
+		text_window_list_.push_back(std::make_shared<TextWindow>(text_window_list_.size(), this));
+		auto& w = text_window_list_.back();
+		if (x < rec_work.left || x > rec_work.right) x = rec_work.left;
+		if (y < rec_work.top || y > rec_work.bottom) y = rec_work.top;
+		w->Create(x, y);
+	}
+}
+
+void CDesktopTextDlg::AddNewWindow()
+{
+	text_window_list_.push_back(std::make_shared<TextWindow>(text_window_list_.size(), this));
+	auto& w = text_window_list_.back();
+	w->Create(0, 0);
+}
+
+void CDesktopTextDlg::UpdateSizeLabel()
+{
+	uint16_t pos = text_size_slider_.GetPos();
+	CString pos_text;
+	pos_text.Format(_T("%d"), pos);
+	text_size_label_.SetWindowText(pos_text);
+	//text_window_list_[index]->SetTextSize(pos);
+}
+
+void CDesktopTextDlg::UpdateAlphaLabel()
+{
+	uint8_t pos = alpha_silder_.GetPos();
+	CString pos_text;
+	pos_text.Format(_T("%d%%"), 100 - pos);
+	alpha_text_.SetWindowText(pos_text);
+	//text_window_list_[index]->SetAlphaPercent(pos);
+}
+
+void CDesktopTextDlg::RemoveRecord(size_t index)
+{
+	if (2 < text_index_.GetCount()) {
+		text_index_.DeleteString(index);
+		text_index_.SetCurSel(index == 0 ? 0 : index - 1);
+		OnCbnSelchangeComboTextIndex();
+	}
+	config_.RemoveConfig(index);
+}
+
+void CDesktopTextDlg::OnLeftButtonUp(int x, int y, size_t index)
+{
+	if (index >= config_.GetConfigSize() || index >= text_window_list_.size())
+		return;
+	TextConfig cfg = std::move(config_.GetConfig(index));
+	RECT rc;
+	text_window_list_[index]->GetWindowRect(&rc);
+	cfg.left_x_ = rc.left;
+	cfg.top_y_ = rc.top;
+	config_.SaveConfig(index, cfg);
 }

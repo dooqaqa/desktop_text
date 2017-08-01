@@ -13,7 +13,7 @@
 #define UM_TRAYNOTIFY WM_USER + 11
 
 // CDesktopTextDlg 对话框
-class CDesktopTextDlg : public CDialogEx
+class CDesktopTextDlg : public CDialogEx, public ITextWindowListener
 {
 // 构造
 public:
@@ -25,13 +25,10 @@ public:
 	enum { IDD = IDD_DESKTOPTEXT_DIALOG };
 #endif
 
-	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
-
-
 // 实现
-protected:
+public:
 	HICON m_hIcon;
+	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
@@ -44,15 +41,24 @@ protected:
 	afx_msg void OnClose();
 	void OnSize(UINT nType, int cx, int cy);
 	DECLARE_MESSAGE_MAP()
-public:
-	afx_msg void OnBnClickedMfcbuttonUpdate();
+	afx_msg void OnBnClickedMfcbuttonApply();
+	virtual void OnLeftButtonUp(int x, int y, size_t index);
 private:
+	void RefreshTextWindow(int index);
+	void RefreshAllTextWindow();
+	void InitConfigWidgets();
+	void UpdateConfigWidgets(size_t index);
+	void InitTextWindows();
+	void AddNewWindow();
+	void UpdateSizeLabel();
+	void UpdateAlphaLabel();
+	void RemoveRecord(size_t index);
 	CEdit main_text_;
-	CComboBox text_size_;
+	CComboBox text_index_;
 	CMFCColorButton text_color_;
 	const std::vector<std::pair<LPCTSTR, uint8_t>> text_size_list_ = {std::make_pair(_T("字号10"), 10),std::make_pair(_T("字号20"), 20),
 		std::make_pair(_T("字号30"), 30), std::make_pair(_T("字号40"), 40), std::make_pair(_T("字号50"), 50) };
-	TextWindow text_window_;
+	std::vector<std::shared_ptr<TextWindow>> text_window_list_;
 	CStatic alpha_text_;
 	CSliderCtrl alpha_silder_;
 	CStatic text_size_label_;
@@ -60,4 +66,6 @@ private:
 	static constexpr int max_font_size = 300;
 	NOTIFYICONDATA notifyicondata_id_;
 	TextWindowConfig config_;
+public:
+	afx_msg void OnCbnSelchangeComboTextIndex();
 };

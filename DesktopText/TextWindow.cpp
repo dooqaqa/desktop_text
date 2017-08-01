@@ -12,10 +12,14 @@ IMPLEMENT_DYNAMIC(TextWindow, CWnd)
 
 TextWindow::TextWindow()
 {
+	TextWindow(-1, nullptr);
+}
+
+TextWindow::TextWindow(size_t index, ITextWindowListener* listener) : index_(index), listener_(listener)
+{
 	HDC hdc = ::GetDC(NULL);
 	dc_ = ::CreateCompatibleDC(hdc);
 	::ReleaseDC(NULL, hdc);
-
 }
 
 TextWindow::~TextWindow()
@@ -26,8 +30,11 @@ TextWindow::~TextWindow()
 BEGIN_MESSAGE_MAP(TextWindow, CWnd)
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONUP()
+	ON_WM_NCLBUTTONUP()
 	ON_WM_DESTROY()
 	ON_WM_CREATE()
+	ON_WM_MOVE()
+	ON_WM_LBUTTONDBLCLK()
 END_MESSAGE_MAP()
 
 int TextWindow::OnCreate(LPCREATESTRUCT create)
@@ -48,6 +55,15 @@ void TextWindow::OnDestroy()
 	font_.release();
 }
 
+void TextWindow::OnMove(int x, int y)
+{
+	int haha = 0;
+}
+
+void TextWindow::OnLButtonDblClk(UINT, CPoint)
+{
+	int haha = 0;
+}
 
 // TextWindow 消息处理程序
 
@@ -187,8 +203,9 @@ BOOL TextWindow::RegisterWndClass(LPCTSTR class_name)
 void TextWindow::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	CWnd::OnLButtonDown(nFlags, point);
-	ReleaseCapture();
+	//ReleaseCapture();
 	SendMessage(WM_NCLBUTTONDOWN, HTCAPTION, NULL);
+	SendMessage(WM_NCLBUTTONUP, HTCAPTION, NULL);
 }
 
 void TextWindow::OnLButtonUp(UINT nFlags, CPoint point)
@@ -196,6 +213,16 @@ void TextWindow::OnLButtonUp(UINT nFlags, CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 
 	CWnd::OnLButtonUp(nFlags, point);
+}
+
+void TextWindow::OnNcLButtonUp(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	//CWnd::OnLButtonUp(nFlags, point);
+	if (listener_)
+		listener_->OnLeftButtonUp(point.x, point.y, index_);
+	int haha = 0;
 }
 
 void TextWindow::SetAlphaPercent(unsigned char percent)
